@@ -193,7 +193,7 @@ def step1_research_plan(person: dict) -> dict:
 def step2_search_records(person: dict, plan: dict) -> list:
     results = []
     for item in plan.get("records_to_search", []):
-        matches = fs_client.search(
+        matches = st.session_state.fs_client.search(
             given_name=person.get("given_name", ""),
             surname=person.get("surname", ""),
             birth_year=person.get("birth_year"),

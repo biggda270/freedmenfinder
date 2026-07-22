@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 logger.addFilter(SensitiveDataFilter())
 logging.basicConfig(level=logging.INFO)
 
-CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
+CLAUDE_MODEL = "claude-opus-4-8"
 DEMO_MODE = config.get("DEMO_MODE", True)
 
 
@@ -91,12 +91,49 @@ except Exception as e:
 
 # ---------- Claude helper functions ----------
 
+def _extract_first_json_object(text: str) -> dict:
+    """Pull the first {...} JSON object out of a prompt string.
+
+    Every prompt in this pipeline embeds the person dict via json.dumps()
+    as the first JSON blob, so this lets demo-mode mocks reflect whatever
+    the user actually typed in instead of a hardcoded example.
+    """
+    start = text.find("{")
+    if start == -1:
+        return {}
+    depth = 0
+    for i, ch in enumerate(text[start:], start=start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start : i + 1])
+                except json.JSONDecodeError:
+                    return {}
+    return {}
+
+
 @st.cache_data(ttl=3600)
 def ask_claude(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
     """Call Claude API (cached for performance)."""
     if DEMO_MODE:
-        return "Mock response from genealogist AI assistant."
-    
+        person = _extract_first_json_object(user_prompt)
+        given = person.get("given_name", "Josef")
+        surname = person.get("surname", "Novak")
+        birth_year = person.get("birth_year", 1888)
+        location = person.get("location", "Bohemia, Austria-Hungary")
+        return (
+            f"{given} {surname} was born around {birth_year} in {location}. "
+            "Based on the available records, the family's story unfolds across "
+            "several generations, with each source adding a little more detail "
+            "to the picture. Where the evidence is thin or conflicting, that is "
+            "noted rather than glossed over — this is a mock narrative generated "
+            "in demo mode, standing in for what Claude would write from the real "
+            "search results."
+        )
+
     if not st.session_state.client:
         raise RuntimeError("Claude client not initialized. Check API key configuration.")
     
@@ -125,42 +162,65 @@ def ask_claude(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> 
 def ask_claude_json(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> dict:
     """Call Claude API and parse JSON response (cached)."""
     if DEMO_MODE:
-        # Return realistic mock JSON for different pipeline steps
+        # Return realistic mock JSON for different pipeline steps, personalized
+        # to whatever person the user actually entered.
+        person = _extract_first_json_object(user_prompt)
+        given = person.get("given_name", "Josef")
+        surname = person.get("surname", "Novak")
+        birth_year = person.get("birth_year", 1888)
+        location = person.get("location", "Bohemia, Austria-Hungary")
+        full_name = f"{given} {surname}"
+
         if "research strategy" in system_prompt.lower() or "plan" in system_prompt.lower():
             return {
                 "records_to_search": [
                     {
                         "type": "Birth Records",
                         "reason": "Primary source for birth date and location",
-                        "search_terms": "Josef Novak 1888"
+                        "search_terms": f"{full_name} {birth_year}"
                     },
                     {
                         "type": "Marriage Records",
                         "reason": "Likely exists given the era",
-                        "search_terms": "Josef Novak marriage 1910-1920"
+                        "search_terms": f"{full_name} marriage {birth_year + 20}-{birth_year + 35}"
                     },
                     {
                         "type": "Census Records",
-                        "reason": "Multiple census records available for Austria-Hungary era",
-                        "search_terms": "Josef Novak census Bohemia"
+                        "reason": f"Multiple census records plausible near {location}",
+                        "search_terms": f"{full_name} census {location}"
                     }
                 ]
             }
         elif "evaluating candidate records" in system_prompt.lower() or "score" in system_prompt.lower():
             return {
-                "scored_records": [
-                    {"record": "1888 Birth Record - Josef Novak", "score": 95, "reason": "Perfect name and date match"},
-                    {"record": "1910 Marriage Record - Josef & Maria", "score": 87, "reason": "Name match, plausible date"},
-                    {"record": "1900 Census - Joseph Nowak", "score": 72, "reason": "Likely same person, minor name variant"}
-                ]
-            }
-        elif "narrative" in system_prompt.lower() or "family history" in system_prompt.lower():
-            return {
-                "narrative": "Josef Novak was born in 1888 in Bohemia, Austria-Hungary. Based on available records, he married Maria in the early 1900s. The family likely remained in the Bohemian region until the early 20th century. Multiple census records and church documents support this timeline."
+                "scored_matches": [
+                    {
+                        "record_type": "Birth Records",
+                        "source_id": "MOCK-BIR-0",
+                        "confidence": 95,
+                        "reasoning": f"Perfect name and date match for {full_name}",
+                        "facts_extracted": {"birth_year": birth_year, "location": location},
+                    },
+                    {
+                        "record_type": "Marriage Records",
+                        "source_id": "MOCK-MAR-0",
+                        "confidence": 87,
+                        "reasoning": "Name match, plausible date",
+                        "facts_extracted": {},
+                    },
+                    {
+                        "record_type": "Census Records",
+                        "source_id": "MOCK-CEN-0",
+                        "confidence": 72,
+                        "reasoning": "Likely same person, minor name variant",
+                        "facts_extracted": {},
+                    },
+                ],
+                "conflicts": [],
             }
         else:
             return {"response": "Mock AI response"}
-    
+
     raw = ask_claude(system_prompt, user_prompt, max_tokens)
     cleaned = raw.strip()
     if cleaned.startswith("```"):
@@ -329,11 +389,9 @@ with st.form("person_intake", clear_on_submit=False):
         key="relatives_input"
     )
     
-    col_submit, col_reset = st.columns(2)
-    with col_submit:
-        submitted = st.form_submit_button("▶️ Run research pipeline", type="primary")
-    with col_reset:
-        st.form_submit_button("🔄 Reset")
+    submitted = st.form_submit_button(
+        "▶️ Run research pipeline", type="primary", use_container_width=True
+    )
 
 # Run pipeline
 if submitted:

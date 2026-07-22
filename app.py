@@ -91,18 +91,39 @@ if "error" not in st.session_state:
 
 # Initialize clients
 try:
+    init_errors = []
+
     if not DEMO_MODE:
         api_key = config.get("ANTHROPIC_API_KEY")
         if not api_key or not validate_api_key(api_key):
-            st.session_state.error = "❌ Invalid or missing ANTHROPIC_API_KEY. Get one at https://console.anthropic.com/account/billing/overview"
+            init_errors.append(
+                "Invalid or missing ANTHROPIC_API_KEY. Get one at "
+                "https://console.anthropic.com/account/billing/overview"
+            )
             logger.warning("Invalid or missing ANTHROPIC_API_KEY")
         else:
             st.session_state.client = Anthropic(api_key=api_key)
             logger.info("Claude client initialized successfully")
-    
-    st.session_state.fs_client = FamilySearchClient(demo_mode=DEMO_MODE)
+
+        if not config.get("FAMILYSEARCH_CLIENT_ID") and not config.get("FAMILYSEARCH_ACCESS_TOKEN"):
+            init_errors.append(
+                "Missing FAMILYSEARCH_CLIENT_ID. Register an app at "
+                "https://www.familysearch.org/developers/ and add its Client ID to your "
+                "configuration (or set FAMILYSEARCH_ACCESS_TOKEN directly)."
+            )
+            logger.warning("Missing FAMILYSEARCH_CLIENT_ID and FAMILYSEARCH_ACCESS_TOKEN")
+
+    st.session_state.fs_client = FamilySearchClient(
+        demo_mode=DEMO_MODE,
+        client_id=config.get("FAMILYSEARCH_CLIENT_ID"),
+        environment=config.get("FAMILYSEARCH_ENV", "integration"),
+        access_token=config.get("FAMILYSEARCH_ACCESS_TOKEN"),
+    )
     logger.info(f"FamilySearch client initialized (demo_mode={DEMO_MODE})")
-    
+
+    if init_errors:
+        st.session_state.error = "\n\n".join(f"❌ {e}" for e in init_errors)
+
 except Exception as e:
     error_msg = mask_sensitive_data(str(e))
     st.session_state.error = f"❌ Error initializing clients: {error_msg}"
@@ -375,16 +396,32 @@ def step1_research_plan(person: dict) -> dict:
 
 
 def step2_search_records(person: dict, plan: dict) -> list:
+    fs_client = st.session_state.fs_client
+    common_args = dict(
+        given_name=person.get("given_name", ""),
+        surname=person.get("surname", ""),
+        birth_year=person.get("birth_year"),
+        location=person.get("location", ""),
+        enslaver=person.get("last_known_enslaver", ""),
+    )
+
+    if not fs_client.demo_mode:
+        # Live FamilySearch access (Unauthenticated Session) only supports a
+        # single general Tree Person Search — it can't filter by collection
+        # the way the planned record types imply — so one query covers the
+        # whole plan instead of repeating an identical call per record type.
+        matches = fs_client.search(record_type="FamilySearch Family Tree", **common_args)
+        return [{
+            "query": {
+                "type": "FamilySearch Family Tree",
+                "reason": "General search across FamilySearch's Family Tree",
+            },
+            "matches": matches,
+        }]
+
     results = []
     for item in plan.get("records_to_search", []):
-        matches = st.session_state.fs_client.search(
-            given_name=person.get("given_name", ""),
-            surname=person.get("surname", ""),
-            birth_year=person.get("birth_year"),
-            location=person.get("location", ""),
-            record_type=item.get("type", ""),
-            enslaver=person.get("last_known_enslaver", ""),
-        )
+        matches = fs_client.search(record_type=item.get("type", ""), **common_args)
         results.append({"query": item, "matches": matches})
     return results
 
@@ -478,7 +515,12 @@ with col1:
     if DEMO_MODE:
         st.info("🎯 **Demo Mode**: Using realistic mock data. Add Anthropic credits to enable real API calls.")
     else:
-        st.success("✅ **Live Mode**: Using real Claude API and FamilySearch data.")
+        st.success(
+            "✅ **Live Mode**: Using the real Claude API. FamilySearch results come from its "
+            "Family Tree (via the Unauthenticated Session grant) — other researchers' person "
+            "profiles, often themselves citing historical records — not a direct search across "
+            "every record collection like Freedmen's Bureau records or slave schedules."
+        )
 with col2:
     if not DEMO_MODE:
         st.metric("Mode", "Live", "active")

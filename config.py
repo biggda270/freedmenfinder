@@ -15,7 +15,7 @@ load_dotenv()
 # Pattern to mask sensitive keys in logs
 SENSITIVE_PATTERNS = [
     r"sk-ant-[a-zA-Z0-9\-]+",  # Anthropic keys
-    r"(ANTHROPIC_API_KEY|FAMILYSEARCH_PASSWORD|FAMILYSEARCH_TOKEN|access_token)\s*=\s*[^\s]+",
+    r"(ANTHROPIC_API_KEY|FAMILYSEARCH_ACCESS_TOKEN|FAMILYSEARCH_CLIENT_ID|access_token)\s*=\s*[^\s]+",
 ]
 
 def mask_sensitive_data(text: str) -> str:
@@ -48,11 +48,15 @@ def get_config():
     config.update({
         "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", config.get("ANTHROPIC_API_KEY")),
         "DEMO_MODE": os.environ.get("DEMO_MODE", config.get("DEMO_MODE", "True")) == "True",
-        "FAMILYSEARCH_USERNAME": os.environ.get("FAMILYSEARCH_USERNAME", config.get("FAMILYSEARCH_USERNAME")),
-        "FAMILYSEARCH_PASSWORD": os.environ.get("FAMILYSEARCH_PASSWORD", config.get("FAMILYSEARCH_PASSWORD")),
+        # FamilySearch: Client ID for the Unauthenticated Session grant (no
+        # personal login needed). FAMILYSEARCH_ACCESS_TOKEN is an optional
+        # escape hatch — set it to use a manually-obtained token (e.g. from
+        # the Authorization Code flow) instead of the automatic grant.
+        "FAMILYSEARCH_CLIENT_ID": os.environ.get("FAMILYSEARCH_CLIENT_ID", config.get("FAMILYSEARCH_CLIENT_ID")),
+        "FAMILYSEARCH_ENV": os.environ.get("FAMILYSEARCH_ENV", config.get("FAMILYSEARCH_ENV", "integration")),
         "FAMILYSEARCH_ACCESS_TOKEN": os.environ.get("FAMILYSEARCH_ACCESS_TOKEN", config.get("FAMILYSEARCH_ACCESS_TOKEN")),
     })
-    
+
     return config
 
 def validate_api_key(api_key: str) -> bool:

@@ -69,10 +69,11 @@ ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
 # Use mock data (True) or real APIs (False)
 DEMO_MODE=True
 
-# FamilySearch credentials (optional, for live mode)
-FAMILYSEARCH_USERNAME=your-email@example.com
-FAMILYSEARCH_PASSWORD=your-password
-FAMILYSEARCH_ACCESS_TOKEN=your-token
+# FamilySearch (optional, for live mode) — register an app at
+# https://www.familysearch.org/developers/ and use its Client ID here.
+# No personal login/password required for this grant.
+FAMILYSEARCH_CLIENT_ID=your-client-id
+FAMILYSEARCH_ENV=integration
 ```
 
 ### Streamlit Configuration
@@ -202,7 +203,7 @@ DEMO_MODE=False streamlit run app.py
 
 ### Claude API
 
-Using `claude-3-5-sonnet-20241022` (current fastest model).
+Using `claude-opus-4-8`.
 
 Cached calls reduce API costs:
 - Research planning: ~500 tokens
@@ -213,11 +214,27 @@ Cached calls reduce API costs:
 
 ### FamilySearch
 
-Currently using mock data in demo mode.
+Demo mode uses mock data. Live mode uses FamilySearch's **Unauthenticated
+Session** OAuth grant — no personal login required, just your app's Client
+ID. That grant only covers a handful of resources (Places, Date Authority,
+Person Search, Person Matches, Relationship Finder), so live results come
+from FamilySearch's **Family Tree** (other researchers' person profiles,
+often citing historical records) rather than a direct search across every
+record collection like Freedmen's Bureau records or slave schedules —
+covering those directly would require the broader Authorization Code (real
+user login) grant, which isn't implemented yet.
 
-To implement live FamilySearch:
-1. Get developer account: https://developers.familysearch.org
-2. Update `familysearch_client.py` with real API calls
+To go live:
+1. Register an app at https://www.familysearch.org/developers/ and confirm
+   it has Unauthenticated Session access enabled.
+2. Set `FAMILYSEARCH_CLIENT_ID` (and `FAMILYSEARCH_ENV=integration` to start)
+   in `.env`.
+3. Set `DEMO_MODE=False`.
+
+FamilySearch's exact base URLs and response shape live behind a login-gated
+reference page, so `familysearch_client.py` documents what it could and
+couldn't verify — check its module docstring and logs if live search calls
+fail.
 
 ## 🐛 Troubleshooting
 

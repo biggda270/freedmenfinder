@@ -65,8 +65,16 @@ def get_app_info():
     """Get app version and metadata."""
     return {
         "version": "1.0.0",
-        "name": "🌳 FREEDMENFINDER — Genealogy Research Agent",
-        "description": "AI-powered genealogy research using Claude and FamilySearch",
+        "name": "🌳 FREEDMENFINDER",
+        "tagline": "Tracing Black family lineage — including back through the era of slavery.",
+        "description": (
+            "An AI-powered genealogy research assistant built specifically to help Black "
+            "Americans trace their family history, using the record types and search "
+            "strategies unique to African American genealogy — Freedmen's Bureau records, "
+            "Freedman's Bank records, cohabitation registers, and slave schedules indexed "
+            "by enslaver's name — to help you find your ancestors on both sides of the "
+            "'1870 brick wall.'"
+        ),
     }
 
 

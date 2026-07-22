@@ -1,13 +1,23 @@
 """
-FREEDMENFINDER — Genealogy Research Agent
-==========================================
+FREEDMENFINDER — African American Genealogy Research Agent
+============================================================
 
-AI-powered genealogy research pipeline:
-  1. Research planning (identify which record types to search)
-  2. Record search (search FamilySearch database)
-  3. Evidence scoring (evaluate match confidence)
-  4. Narrative generation (write family history)
-  5. GEDCOM export (download structured genealogy data)
+An AI-powered genealogy research pipeline built specifically to help Black
+Americans trace their family lineage, including back through the era of
+slavery. It plans a research strategy that accounts for the "1870 brick
+wall" — the fact that the 1870 U.S. Census was the first federal record to
+list formerly enslaved people by their own full name as free citizens, so
+earlier records are usually indexed under the enslaver's name instead:
+
+  1. Research planning (which record types to search, era-aware)
+  2. Record search (Freedmen's Bureau, Freedman's Bank, slave schedules,
+     cohabitation registers, and standard vital/census records)
+  3. Evidence scoring (evaluate match confidence, aware of enslaver-indexed
+     and post-emancipation surname changes)
+  4. Narrative generation (write a dignified, historically grounded family
+     history)
+  5. GEDCOM export (download structured genealogy data, plus a plain-English
+     summary)
 
 Run: streamlit run app.py
 
@@ -120,10 +130,23 @@ def ask_claude(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> 
     """Call Claude API (cached for performance)."""
     if DEMO_MODE:
         person = _extract_first_json_object(user_prompt)
-        given = person.get("given_name", "Josef")
-        surname = person.get("surname", "Novak")
-        birth_year = person.get("birth_year", 1888)
-        location = person.get("location", "Bohemia, Austria-Hungary")
+        given = person.get("given_name", "Moses")
+        surname = person.get("surname", "Freeman")
+        birth_year = person.get("birth_year", 1852)
+        location = person.get("location", "Charleston County, South Carolina")
+        if _likely_pre_emancipation(person):
+            return (
+                f"{given} {surname} was born around {birth_year} in {location} — "
+                "likely into slavery, since federal records rarely name enslaved "
+                "people directly before emancipation. The trail on this side of "
+                "the 1870 brick wall is thin, built from age and location clues in "
+                "enslaver-indexed records. But by the 1870 census, the first to "
+                f"record {given} by full name as a free citizen, a fuller picture "
+                "begins to emerge. Where the evidence is thin or conflicting, that "
+                "is noted rather than glossed over — this is a mock narrative "
+                "generated in demo mode, standing in for what Claude would write "
+                "from the real search results."
+            )
         return (
             f"{given} {surname} was born around {birth_year} in {location}. "
             "Based on the available records, the family's story unfolds across "
@@ -165,13 +188,52 @@ def ask_claude_json(system_prompt: str, user_prompt: str, max_tokens: int = 1500
         # Return realistic mock JSON for different pipeline steps, personalized
         # to whatever person the user actually entered.
         person = _extract_first_json_object(user_prompt)
-        given = person.get("given_name", "Josef")
-        surname = person.get("surname", "Novak")
-        birth_year = person.get("birth_year", 1888)
-        location = person.get("location", "Bohemia, Austria-Hungary")
+        given = person.get("given_name", "Moses")
+        surname = person.get("surname", "Freeman")
+        birth_year = person.get("birth_year", 1852)
+        location = person.get("location", "Charleston County, South Carolina")
+        enslaver = person.get("last_known_enslaver", "").strip()
         full_name = f"{given} {surname}"
+        pre_emancipation = _likely_pre_emancipation(person)
 
-        if "research strategy" in system_prompt.lower() or "plan" in system_prompt.lower():
+        if "records_to_search" in system_prompt:
+            if pre_emancipation:
+                enslaver_note = f" (\"{enslaver}\")" if enslaver else " (name not yet known)"
+                return {
+                    "records_to_search": [
+                        {
+                            "type": "Slave Schedule (1860)",
+                            "reason": (
+                                f"If {full_name} was enslaved before 1865, this record lists "
+                                f"them only by age and sex under their enslaver's name{enslaver_note}"
+                            ),
+                            "search_terms": f"slave schedule {enslaver or location} 1860",
+                        },
+                        {
+                            "type": "Freedmen's Bureau Records",
+                            "reason": (
+                                "Labor contracts, marriage registers, and family records created "
+                                "1865-1872 as freed people transitioned to citizenship"
+                            ),
+                            "search_terms": f"{full_name} Freedmen's Bureau {location}",
+                        },
+                        {
+                            "type": "1870 Census",
+                            "reason": (
+                                "The first federal census to record formerly enslaved people by "
+                                "full name as free citizens — the key record on the far side of "
+                                "the 1870 brick wall"
+                            ),
+                            "search_terms": f"{full_name} 1870 census {location}",
+                        },
+                        {
+                            "type": "Freedman's Bank Records",
+                            "reason": "Often list a former enslaver's name and place of birth",
+                            "search_terms": f"{full_name} Freedman's Savings Bank",
+                        },
+                    ],
+                    "pre_1870_brick_wall": True,
+                }
             return {
                 "records_to_search": [
                     {
@@ -189,9 +251,40 @@ def ask_claude_json(system_prompt: str, user_prompt: str, max_tokens: int = 1500
                         "reason": f"Multiple census records plausible near {location}",
                         "search_terms": f"{full_name} census {location}"
                     }
-                ]
+                ],
+                "pre_1870_brick_wall": False,
             }
-        elif "evaluating candidate records" in system_prompt.lower() or "score" in system_prompt.lower():
+        elif "scored_matches" in system_prompt:
+            if pre_emancipation:
+                return {
+                    "scored_matches": [
+                        {
+                            "record_type": "Slave Schedule (1860)",
+                            "source_id": "MOCK-SLS-0",
+                            "confidence": 55,
+                            "reasoning": (
+                                "Age and location are consistent, but slave schedules record no "
+                                "name — this is a plausible, not confirmed, match"
+                            ),
+                            "facts_extracted": {"enslaver": enslaver or "unknown", "location": location},
+                        },
+                        {
+                            "record_type": "Freedmen's Bureau Records",
+                            "source_id": "MOCK-FB-0",
+                            "confidence": 90,
+                            "reasoning": f"Name and location match for {full_name} in a labor contract",
+                            "facts_extracted": {"location": location},
+                        },
+                        {
+                            "record_type": "1870 Census",
+                            "source_id": "MOCK-1870-0",
+                            "confidence": 93,
+                            "reasoning": f"Strong name, age, and location match for {full_name}",
+                            "facts_extracted": {"birth_year": birth_year, "location": location},
+                        },
+                    ],
+                    "conflicts": [],
+                }
             return {
                 "scored_matches": [
                     {
@@ -238,13 +331,33 @@ def ask_claude_json(system_prompt: str, user_prompt: str, max_tokens: int = 1500
 
 
 # ---------- Pipeline steps ----------
+
+def _likely_pre_emancipation(person: dict) -> bool:
+    """True if the birth year suggests the person was likely born enslaved."""
+    birth_year = person.get("birth_year")
+    return bool(birth_year) and birth_year < 1866
+
+
 def step1_research_plan(person: dict) -> dict:
     system = (
-        "You are a professional genealogist planning a research strategy. "
-        "Given basic facts about a person, list which record types plausibly "
-        "exist and are worth searching for, given the era and location. "
+        "You are a professional genealogist who specializes in African American "
+        "family history research, with deep expertise in tracing ancestry through "
+        "and beyond the '1870 brick wall' — the 1870 U.S. Census was the first "
+        "federal record to list formerly enslaved people by their own full name "
+        "as free citizens, so records from before that date are usually indexed "
+        "under the name of the person who enslaved them, not the ancestor's name. "
+        "Given basic facts about a person, list which record types plausibly exist "
+        "and are worth searching for, given the era and location. If the birth year "
+        "suggests the person was likely born enslaved (before 1866), prioritize "
+        "records indexed by their enslaver — slave schedules (1850/1860), "
+        "plantation and probate/estate records — alongside Freedmen's Bureau "
+        "records (1865-1872), Freedman's Bank records, and Reconstruction-era "
+        "cohabitation/marriage registers. If a 'last_known_enslaver' is given, use "
+        "it directly in the search terms for enslaver-indexed record types. "
+        "Otherwise, use standard vital, census, and marriage records for the era. "
         "Respond ONLY with JSON: "
-        '{"records_to_search": [{"type": "...", "reason": "...", "search_terms": "..."}]}'
+        '{"records_to_search": [{"type": "...", "reason": "...", "search_terms": "..."}], '
+        '"pre_1870_brick_wall": true/false}'
     )
     user = f"Person details:\n{json.dumps(person, indent=2)}"
     return ask_claude_json(system, user)
@@ -259,6 +372,7 @@ def step2_search_records(person: dict, plan: dict) -> list:
             birth_year=person.get("birth_year"),
             location=person.get("location", ""),
             record_type=item.get("type", ""),
+            enslaver=person.get("last_known_enslaver", ""),
         )
         results.append({"query": item, "matches": matches})
     return results
@@ -266,11 +380,18 @@ def step2_search_records(person: dict, plan: dict) -> list:
 
 def step3_score_evidence(person: dict, search_results: list) -> dict:
     system = (
-        "You are a genealogist evaluating candidate records against a target person. "
-        "For each match, assign a confidence score 0-100 based on name similarity, "
-        "date proximity (allow +/-2 years), location consistency, and any family "
-        "cross-references. Flag direct conflicts between sources (e.g. two "
-        "different birth years) rather than silently picking one. "
+        "You are a genealogist specializing in African American family history, "
+        "evaluating candidate records against a target person. For each match, "
+        "assign a confidence score 0-100 based on name similarity, date proximity "
+        "(allow +/-2 years), location consistency, and any family cross-references. "
+        "Remember that pre-1866 records (slave schedules, plantation records) "
+        "typically list enslaved people only by age, sex, and color under their "
+        "enslaver's name rather than by their own name — score those on age/location "
+        "consistency with the enslaver, not name match, and say so in your reasoning. "
+        "Also remember that formerly enslaved people often adopted a new surname "
+        "after emancipation, so a surname mismatch across 1865 is not itself a "
+        "conflict. Flag genuine conflicts between sources (e.g. two different birth "
+        "years) rather than silently picking one. "
         "Respond ONLY with JSON: "
         '{"scored_matches": [{"record_type":"...", "source_id":"...", '
         '"confidence": 0, "reasoning":"...", "facts_extracted": {...}}], '
@@ -285,11 +406,15 @@ def step3_score_evidence(person: dict, search_results: list) -> dict:
 
 def step4_write_narrative(person: dict, scored: dict) -> str:
     system = (
-        "You are a skilled family historian writing a warm, engaging, factually "
-        "grounded narrative about a person's life, based only on the confirmed "
-        "facts provided. Do not invent details. Where confidence is low or facts "
-        "conflict, note the uncertainty gracefully rather than glossing over it. "
-        "Write 3-5 short paragraphs."
+        "You are a skilled family historian who writes warm, dignified, and "
+        "historically grounded narratives about African American family history, "
+        "based only on the confirmed facts provided — do not invent details. If "
+        "the ancestor was likely enslaved, write about that plainly and with "
+        "respect: acknowledge the injustice without dwelling on trauma for its own "
+        "sake, and center the person's identity, agency, and the significance of "
+        "what was found on either side of the 1870 brick wall. Where confidence is "
+        "low or facts conflict, note the uncertainty gracefully rather than "
+        "glossing over it. Write 3-5 short paragraphs."
     )
     user = (
         f"Person:\n{json.dumps(person, indent=2)}\n\n"
@@ -312,16 +437,16 @@ with st.sidebar:
     st.subheader("📖 About")
     st.markdown(f"""
     **{app_info['name']}**
-    
+
     v{app_info['version']}
-    
+
     {app_info['description']}
-    
+
     [GitHub](https://github.com) • [Docs](https://docs.familysearch.org)
     """)
-    
+
     st.divider()
-    
+
     if st.button("🔄 Clear Cache"):
         st.cache_data.clear()
         st.session_state.clear()
@@ -329,6 +454,7 @@ with st.sidebar:
 
 # Main title
 st.title(app_info["name"])
+st.caption(app_info["tagline"])
 
 # Show error if present
 if st.session_state.error:
@@ -346,49 +472,71 @@ with col2:
     if not DEMO_MODE:
         st.metric("Mode", "Live", "active")
 
+st.markdown(
+    "This tool is built for a specific challenge in Black family history: most "
+    "federal records only began naming formerly enslaved people as full citizens "
+    "starting with the **1870 census**. Before that date, ancestors usually appear "
+    "only indirectly — indexed under the name of the person who enslaved them. "
+    "FREEDMENFINDER plans a research strategy that accounts for that shift, "
+    "drawing on Freedmen's Bureau records, Freedman's Bank records, cohabitation "
+    "registers, and slave schedules alongside standard vital and census records."
+)
+
 st.divider()
 
 # Input form
 with st.form("person_intake", clear_on_submit=False):
     st.subheader("1️⃣ Tell me about the person")
-    
+
     col1, col2 = st.columns(2)
     with col1:
         given_name = st.text_input(
             "Given name",
-            value="Josef",
+            value="Moses",
             help="First or given name"
         )
     with col2:
         surname = st.text_input(
             "Surname",
-            value="Novak",
-            help="Last or family name"
+            value="Freeman",
+            help="Last or family name — note that many formerly enslaved people "
+                 "adopted a new surname after emancipation, so this may differ "
+                 "before and after 1865"
         )
-    
+
     col3, col4 = st.columns(2)
     with col3:
         birth_year = st.number_input(
             "Approx. birth year",
             min_value=1700,
             max_value=2020,
-            value=1888,
+            value=1852,
             help="Approximate year of birth"
         )
     with col4:
         location = st.text_input(
             "Approx. birth location",
-            value="Bohemia, Austria-Hungary",
-            help="Region, town, or country"
+            value="Charleston County, South Carolina",
+            help="County, state, or region"
         )
-    
+
+    enslaver = st.text_input(
+        "Last known enslaver's name or plantation (if applicable)",
+        value="",
+        placeholder="e.g., Thomas Heyward, or Heyward Plantation",
+        help="If this ancestor was likely enslaved before 1865, this is often the "
+             "single most useful piece of information — slave schedules, "
+             "plantation, and probate records are indexed by the enslaver's name, "
+             "not the enslaved person's name."
+    )
+
     st.text_area(
         "Known relatives (optional)",
-        placeholder="wife: Anna Novak\nson: Josef Jr.",
+        placeholder="wife: Anna Freeman\nson: Moses Jr.",
         help="One relative per line, e.g., 'wife: Anna' or 'father: Johann'",
         key="relatives_input"
     )
-    
+
     submitted = st.form_submit_button(
         "▶️ Run research pipeline", type="primary", use_container_width=True
     )
@@ -403,6 +551,7 @@ if submitted:
             "surname": surname,
             "birth_year": int(birth_year),
             "location": location,
+            "last_known_enslaver": enslaver.strip(),
             "known_relatives": [
                 r.strip()
                 for r in st.session_state.relatives_input.splitlines()
@@ -414,15 +563,48 @@ if submitted:
             try:
                 st.write("**Step 1 — Planning research strategy**")
                 plan = step1_research_plan(person)
-                st.json(plan)
+                if plan.get("pre_1870_brick_wall"):
+                    st.warning(
+                        "🧱 **The 1870 brick wall** — based on the birth year, "
+                        f"{given_name} was very likely born into slavery. Records "
+                        "before 1870 rarely name enslaved people directly, so this "
+                        "search leans on enslaver-indexed records (slave schedules, "
+                        "plantation and probate records) alongside the Freedmen's "
+                        "Bureau and Freedman's Bank records created during "
+                        "Reconstruction."
+                    )
+                for rec in plan.get("records_to_search", []):
+                    st.markdown(f"- **{rec.get('type', 'Record')}** — {rec.get('reason', '')}")
 
                 st.write("**Step 2 — Searching records**")
                 search_results = step2_search_records(person, plan)
-                st.json(search_results)
+                total_matches = sum(len(r["matches"]) for r in search_results)
+                st.caption(
+                    f"Found {total_matches} candidate record(s) across "
+                    f"{len(search_results)} searches."
+                )
+                for r in search_results:
+                    label = r["query"].get("type", "Record")
+                    matches = r["matches"]
+                    with st.expander(f"{label} — {len(matches)} match(es)"):
+                        if not matches:
+                            st.caption("No matches found in this search.")
+                        for m in matches:
+                            st.markdown(
+                                f"- **{m.get('name_as_recorded')}**, "
+                                f"{m.get('year_as_recorded')} — {m.get('location_as_recorded')}  \n"
+                                f"  *Source: {m.get('archive')}*"
+                            )
 
                 st.write("**Step 3 — Scoring evidence & flagging conflicts**")
                 scored = step3_score_evidence(person, search_results)
-                st.json(scored)
+                for match in scored.get("scored_matches", []):
+                    confidence = match.get("confidence", 0)
+                    badge = "🟢" if confidence >= 85 else "🟡" if confidence >= 60 else "🔴"
+                    st.markdown(
+                        f"{badge} **{match.get('record_type', 'Record')}** — "
+                        f"{confidence}% confidence  \n{match.get('reasoning', '')}"
+                    )
 
                 st.write("**Step 4 — Writing narrative**")
                 narrative = step4_write_narrative(person, scored)
@@ -439,11 +621,12 @@ if submitted:
         st.divider()
 
         # Results
-        st.subheader("📖 Family History Narrative")
-        if isinstance(narrative, dict) and "narrative" in narrative:
-            st.write(narrative["narrative"])
-        else:
-            st.write(narrative)
+        st.subheader(f"📖 {given_name} {surname}'s Story")
+        with st.container(border=True):
+            if isinstance(narrative, dict) and "narrative" in narrative:
+                st.markdown(narrative["narrative"])
+            else:
+                st.markdown(narrative)
 
         if scored.get("conflicts"):
             st.subheader("⚠️ Conflicts found (needs your review)")

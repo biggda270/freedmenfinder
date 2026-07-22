@@ -1,14 +1,19 @@
-# 🌳 FREEDMENFINDER — Genealogy Research Agent
+# 🌳 FREEDMENFINDER
 
-An AI-powered genealogy research pipeline that combines Claude AI with genealogical data to help you research your family history.
+An AI-powered genealogy research assistant built specifically to help Black Americans trace their family lineage — including back through the era of slavery.
+
+Most genealogy tools are built around records that only start naming people consistently from the mid-1800s onward. For African American research, that's a problem: the **1870 U.S. Census** was the first federal record to list formerly enslaved people by their own full name as free citizens. Records from before that date almost never name an enslaved person directly — they're indexed under the name of the person who enslaved them instead. Genealogists call this the **"1870 brick wall."**
+
+FREEDMENFINDER plans a research strategy that accounts for that shift on both sides of 1870 — Freedmen's Bureau records, Freedman's Bank records, Reconstruction-era cohabitation/marriage registers, and enslaver-indexed slave schedules and plantation/probate records, alongside standard vital and census records — and helps you carry a search across it using the last known enslaver's name, when that's what family history has passed down.
 
 ## ✨ Features
 
-- **AI Research Planning**: Claude analyzes your ancestor and suggests which record types to search
-- **Record Search**: Searches FamilySearch database (with realistic mock data in demo mode)
-- **Evidence Scoring**: AI evaluates match confidence and flags conflicting records
-- **Narrative Generation**: Creates a warm, factually-grounded family history narrative
-- **GEDCOM Export**: Download results in standard genealogical data format
+- **AI Research Planning**: Claude plans an era-aware search strategy, prioritizing enslaver-indexed records (slave schedules, plantation/probate records) when an ancestor was likely born before emancipation
+- **Record Search**: Searches historically appropriate record types — Freedmen's Bureau records, Freedman's Bank records, slave schedules, cohabitation registers, and standard vital/census records (with realistic mock data in demo mode)
+- **Evidence Scoring**: AI evaluates match confidence, aware that pre-1866 records name no one directly and that surnames often changed after emancipation, and flags genuine conflicts
+- **Narrative Generation**: Creates a warm, dignified, factually-grounded family history narrative
+- **Plain-English Record Summary**: Translates the result into a readable summary of the person, their family, and the supporting evidence — no GEDCOM syntax required
+- **GEDCOM Export**: Download results in standard genealogical data format for import into Ancestry, MyHeritage, or Gramps
 
 ## 🚀 Quick Start
 

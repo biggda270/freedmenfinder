@@ -592,20 +592,11 @@ if submitted:
                 total_matches = sum(len(r["matches"]) for r in search_results)
                 st.caption(
                     f"Found {total_matches} candidate record(s) across "
-                    f"{len(search_results)} searches."
+                    f"{len(search_results)} searches — details below."
                 )
                 for r in search_results:
                     label = r["query"].get("type", "Record")
-                    matches = r["matches"]
-                    with st.expander(f"{label} — {len(matches)} match(es)"):
-                        if not matches:
-                            st.caption("No matches found in this search.")
-                        for m in matches:
-                            st.markdown(
-                                f"- **{m.get('name_as_recorded')}**, "
-                                f"{m.get('year_as_recorded')} — {m.get('location_as_recorded')}  \n"
-                                f"  *Source: {m.get('archive')}*"
-                            )
+                    st.markdown(f"- {label}: {len(r['matches'])} match(es)")
 
                 st.write("**Step 3 — Scoring evidence & flagging conflicts**")
                 scored = step3_score_evidence(person, search_results)
@@ -638,6 +629,20 @@ if submitted:
                 st.markdown(narrative["narrative"])
             else:
                 st.markdown(narrative)
+
+        st.subheader("🔎 Search Results")
+        for r in search_results:
+            label = r["query"].get("type", "Record")
+            matches = r["matches"]
+            with st.expander(f"{label} — {len(matches)} match(es)"):
+                if not matches:
+                    st.caption("No matches found in this search.")
+                for m in matches:
+                    st.markdown(
+                        f"- **{m.get('name_as_recorded')}**, "
+                        f"{m.get('year_as_recorded')} — {m.get('location_as_recorded')}  \n"
+                        f"  *Source: {m.get('archive')}*"
+                    )
 
         if scored.get("conflicts"):
             st.subheader("⚠️ Conflicts found (needs your review)")

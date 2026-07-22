@@ -28,6 +28,16 @@ def mask_sensitive_data(text: str) -> str:
         masked = re.sub(pattern, "***REDACTED***", masked, flags=re.IGNORECASE)
     return masked
 
+def _parse_bool(value, default: bool = True) -> bool:
+    """Parse a config value as a bool, whether it arrived as a native TOML
+    boolean (from st.secrets) or a string (from a .env file / env var)."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() == "true"
+
+
 def get_config():
     """Load and validate configuration from environment."""
     config = {}
@@ -47,7 +57,7 @@ def get_config():
     # Merge with environment variables (env vars take precedence)
     config.update({
         "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", config.get("ANTHROPIC_API_KEY")),
-        "DEMO_MODE": os.environ.get("DEMO_MODE", config.get("DEMO_MODE", "True")) == "True",
+        "DEMO_MODE": _parse_bool(os.environ.get("DEMO_MODE", config.get("DEMO_MODE")), default=True),
         # FamilySearch: Client ID for the Unauthenticated Session grant (no
         # personal login needed). FAMILYSEARCH_ACCESS_TOKEN is an optional
         # escape hatch — set it to use a manually-obtained token (e.g. from

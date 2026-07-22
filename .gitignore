@@ -39,7 +39,7 @@ ENV/
 .sublime-workspace
 
 # Streamlit
-.streamlit/
+.streamlit/*
 !.streamlit/config.toml
 !.streamlit/secrets.toml.template
 

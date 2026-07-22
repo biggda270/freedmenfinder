@@ -43,7 +43,18 @@ from familysearch_client import FamilySearchClient
 from gedcom_export import build_gedcom, gedcom_to_plain_english
 
 config = get_config()
-app_info = get_app_info()
+
+# Defaults guard against a stale/partial config module — Streamlit's dev and
+# Cloud reload only re-executes this entrypoint script on a source change; it
+# does not clear sys.modules, so a process that wasn't fully restarted after
+# a deploy can still be running an older config.py that lacks newer keys.
+app_info = {
+    "version": "1.0.0",
+    "name": "🌳 FREEDMENFINDER",
+    "tagline": "Tracing Black family lineage — including back through the era of slavery.",
+    "description": "AI-powered genealogy research built for African American family history.",
+}
+app_info.update(get_app_info())
 
 # MUST call set_page_config first, before any other st commands
 st.set_page_config(

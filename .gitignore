@@ -1,0 +1,77 @@
+# ⚠️ SENSITIVE FILES - NEVER COMMIT THESE
+# These files contain API keys and must always be in .gitignore
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.streamlit/secrets.toml
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.venv
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.sublime-project
+.sublime-workspace
+
+# Streamlit
+.streamlit/
+!.streamlit/config.toml
+!.streamlit/secrets.toml.template
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# OS files
+Thumbs.db
+.directory
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build outputs
+*.whl
+*.tar.gz
+
+# IDE generated files
+*.iml
+out/
+target/
+
+# Node (if using frontend tools)
+node_modules/
+npm-debug.log
+
+# Temporary files
+*.tmp
+tmp/
+temp/
+

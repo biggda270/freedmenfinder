@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  freedmenfinder:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEMO_MODE=${DEMO_MODE:-True}
+      - FAMILYSEARCH_TOKEN=${FAMILYSEARCH_TOKEN}
+    volumes:
+      - .:/app
+    command: streamlit run app.py --server.headless true
+
+  # Optional: Redis cache for production
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"

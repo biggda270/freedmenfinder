@@ -30,7 +30,7 @@ load_dotenv()
 
 from config import get_config, validate_api_key, get_app_info, mask_sensitive_data
 from familysearch_client import FamilySearchClient
-from gedcom_export import build_gedcom
+from gedcom_export import build_gedcom, gedcom_to_plain_english
 
 config = get_config()
 app_info = get_app_info()
@@ -451,23 +451,23 @@ if submitted:
                 with st.expander(f"❌ {c.get('description')}"):
                     st.write(f"**Sources**: {', '.join(c.get('sources', []))}")
 
-        # Export
+        # Results summary + export
+        gedcom_text = build_gedcom(person, scored)
+
         st.divider()
-        st.subheader("⬇️ Export Results")
+        st.subheader("📋 Record Summary")
+        st.markdown(gedcom_to_plain_english(gedcom_text))
 
-        col_export, col_view = st.columns(2)
-
-        with col_export:
-            gedcom_text = build_gedcom(person, scored)
-            st.download_button(
-                "📥 Download GEDCOM file",
-                data=gedcom_text,
-                file_name=f"{surname}_{given_name}.ged",
-                mime="text/plain",
-                use_container_width=True
-            )
-
-        with col_view:
-            with st.expander("👁️ View raw GEDCOM"):
-                st.code(gedcom_text, language="text", line_numbers=True)
+        st.divider()
+        st.subheader("⬇️ Export")
+        st.download_button(
+            "📥 Download GEDCOM file",
+            data=gedcom_text,
+            file_name=f"{surname}_{given_name}.ged",
+            mime="text/plain",
+            help="Standard genealogy interchange format, importable into "
+                 "software like Ancestry, MyHeritage, or Gramps.",
+        )
+        with st.expander("🔧 View raw GEDCOM (technical)"):
+            st.code(gedcom_text, language="text", line_numbers=True)
 
